@@ -85,8 +85,8 @@ int main() {
         string event = j[0].get<string>();
         if (event == "telemetry") {
           // j[1] is the data JSON object
-          vector<double> ptsx = j[1]["ptsx"];
-          vector<double> ptsy = j[1]["ptsy"];
+            Eigen::VectorXd ptsx = j[1]["ptsx"];
+            Eigen::VectorXd ptsy = j[1]["ptsy"];
           double px = j[1]["x"];
           double py = j[1]["y"];
           double psi = j[1]["psi"];
@@ -98,8 +98,20 @@ int main() {
           * Both are in between [-1, 1].
           *
           */
-          double steer_value;
-          double throttle_value;
+            auto coeffs = polyfit(ptsx, ptsy, 3);
+
+            double cte = polyeval(coeffs, px) - py ;
+            // TODO: calculate the orientation error
+            double slop = coeffs[1] + 2*coeffs[2]*px + 3*coeffs[3]*pow(px, 2);
+            double epsi = psi - atan(slop) ;
+
+            Eigen::VectorXd state(6);
+            state << px, py, psi, v, cte, epsi;
+
+            auto vars = mpc.Solve(state, coeffs);
+
+          double steer_value = vars[0] / deg2rad(25);
+          double throttle_value = vars[1];
 
           json msgJson;
           // NOTE: Remember to divide by deg2rad(25) before you send the steering value back.
