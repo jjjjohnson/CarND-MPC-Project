@@ -85,8 +85,8 @@ int main() {
         string event = j[0].get<string>();
         if (event == "telemetry") {
           // j[1] is the data JSON object
-            Eigen::VectorXd ptsx = j[1]["ptsx"];
-            Eigen::VectorXd ptsy = j[1]["ptsy"];
+            vector<double> ptsx = j[1]["ptsx"];
+            vector<double> ptsy = j[1]["ptsy"];
           double px = j[1]["x"];
           double py = j[1]["y"];
           double psi = j[1]["psi"];
@@ -98,7 +98,14 @@ int main() {
           * Both are in between [-1, 1].
           *
           */
-            auto coeffs = polyfit(ptsx, ptsy, 3);
+            // Convert to Eigen
+            // Pointer to first element
+            double* ptr_x = &ptsx[0];
+            double* ptr_y = &ptsy[0];
+
+            Eigen::Map<Eigen::VectorXd> ptsx_vector(ptr_x, ptsx.size());
+            Eigen::Map<Eigen::VectorXd> ptsy_vector(ptr_y, ptsy.size());
+            auto coeffs = polyfit(ptsx_vector, ptsy_vector, 3);
 
             double cte = polyeval(coeffs, px) - py ;
             // TODO: calculate the orientation error
