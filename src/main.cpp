@@ -65,6 +65,19 @@ Eigen::VectorXd polyfit(Eigen::VectorXd xvals, Eigen::VectorXd yvals,
   return result;
 }
 
+// NOTE: state is [x, y, psi, v]
+// NOTE: actuators is [delta, a]
+Eigen::VectorXd globalKinematic(Eigen::VectorXd state, vector<double> actuators, double dt) {
+    Eigen::VectorXd next_state(state.size());
+    const double Lf = 2.67;
+
+    next_state[0] = state[0] + state[3]*cos(state[2])*dt;
+    next_state[1] = state[1] + state[3]*sin(state[2])*dt;
+    next_state[2] = state[2] + state[3]/Lf*actuators[0]*dt;
+    next_state[3] = state[3] + actuators[1]*dt;
+    return next_state;
+}
+
 int main() {
   uWS::Hub h;
 
@@ -91,7 +104,8 @@ int main() {
           double py = j[1]["y"];
           double psi = j[1]["psi"];
           double v = j[1]["speed"];
-
+            double delta = j[1]["steering_angle"];
+            double acceleration = j[1]["throttle"];
           /*
           * TODO: Calculate steeering angle and throttle using MPC.
           *
@@ -105,6 +119,7 @@ int main() {
 
             Eigen::Map<Eigen::VectorXd> ptsx_vector(ptr_x, ptsx.size());
             Eigen::Map<Eigen::VectorXd> ptsy_vector(ptr_y, ptsy.size());
+
             auto coeffs = polyfit(ptsx_vector, ptsy_vector, 3);
 
             double cte = polyeval(coeffs, px) - py ;
@@ -115,10 +130,13 @@ int main() {
             Eigen::VectorXd state(6);
             state << px, py, psi, v, cte, epsi;
 
-            auto vars = mpc.Solve(state, coeffs);
+            // Predict the next state and feed into the Solve
+            auto a = {delta, acceleration};
+            state = globalKinematic(state, a, 0.1);
+            vector<double> actuators = mpc.Solve(state, coeffs);
 
-          double steer_value = vars[0] / deg2rad(25);
-          double throttle_value = vars[1];
+          double steer_value = actuators[0] / deg2rad(25);
+          double throttle_value = actuators[1];
 
           json msgJson;
           // NOTE: Remember to divide by deg2rad(25) before you send the steering value back.

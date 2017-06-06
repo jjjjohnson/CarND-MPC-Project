@@ -6,9 +6,10 @@
 using CppAD::AD;
 
 // TODO: Set the timestep length and duration
-size_t N = 25;
+size_t N = 7;
 double dt = 0.05;
 
+MPC_Weights w;
 // This value assumes the model presented in the classroom is used.
 //
 // It was obtained by measuring the radius formed by running the vehicle in the
@@ -55,19 +56,24 @@ class FG_eval {
       // TODO: Define the cost related the reference state and
       // any anything you think may be beneficial.
       for (int t=0; t < N; t++) {
-          fg[0] += pow(vars[t + cte_start] - ref_cte, 2);
-          fg[0] += pow(vars[t + epsi_start] - ref_epsi, 2);
-          fg[0] += pow(vars[t + v_start] - ref_v, 2); // (Assuming 35 mph is the speed limit)
+          fg[0] += w.w_cte*pow(vars[t + cte_start] - ref_cte, 2);
+          fg[0] += w.w_epsi*pow(vars[t + epsi_start] - ref_epsi, 2);
+          fg[0] += w.w_v*pow(vars[t + v_start] - ref_v, 2); // (Assuming 35 mph is the speed limit)
       }
+
       for (int t=0; t < N - 1; t++){
-          fg[0] += pow(vars[t + delta_start], 2);
-          fg[0] += pow(vars[a_start + t], 2);
+          fg[0] += w.w_angle*pow(vars[t + delta_start], 2);
+          fg[0] += w.w_accel*pow(vars[a_start + t], 2);
       }
 
       for (int t = 0; t < N - 2; t++) {
-          fg[0] += 100 * pow(vars[t+1+delta_start] - vars[t+delta_start], 2);
-          fg[0] += pow(vars[t+1+a_start] - vars[t+a_start], 2);
+          fg[0] += w.w_angle_jerk*pow(vars[t+1+delta_start] - vars[t+delta_start], 2);
+          fg[0] += w.w_accel_jerk*pow(vars[t+1+a_start] - vars[t+a_start], 2);
       }
+      // Normalize weight for readability
+      fg[0] *= w.w_norm;
+
+      // Initial constraints
       fg[1 + x_start] = vars[x_start];
       fg[1 + y_start] = vars[y_start];
       fg[1 + psi_start] = vars[psi_start];
@@ -91,7 +97,7 @@ class FG_eval {
           AD<double> v1 = vars[v_start + i + 1];
           AD<double> cte1 = vars[cte_start + i + 1];
           AD<double> epsi1 = vars[epsi_start + i + 1];
-
+          // Control output
           AD<double> delta = vars[delta_start + i];
           AD<double> a = vars[a_start + i];
 
