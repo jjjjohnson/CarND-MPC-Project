@@ -10,7 +10,7 @@ using namespace std;
 struct MPC_Weights {
     const double w_cte = 100;
     const double w_epsi = 100;
-    const double w_v = 1;
+    const double w_v = 100;
     const double w_angle = 100;
     const double w_accel = 1;
     const double w_angle_jerk = 50000;

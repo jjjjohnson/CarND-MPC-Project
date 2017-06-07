@@ -6,6 +6,7 @@
 #include <vector>
 #include "Eigen-3.3/Eigen/Core"
 #include "Eigen-3.3/Eigen/QR"
+#include "Eigen-3.3/Eigen/Dense"
 #include "MPC.h"
 #include "json.hpp"
 
@@ -95,13 +96,22 @@ int main() {
             double delta = j[1]["steering_angle"];
             double acceleration = j[1]["throttle"];
 
+
+            Eigen::Matrix3f T;
+            Eigen::Vector3f P;
             for (int i = 0; i < ptsx.size(); i++ )
             {
-                // Transforming from map's coordinate to car's coordinate
-                double diff_x = ptsx[i]-px;
-                double diff_y = ptsy[i]-py;
-                ptsx[i] = (diff_x * cos(-psi) + diff_y * sin(psi));
-                ptsy[i] = (diff_x * sin(-psi) + diff_y * cos(-psi));
+                // Transform matrix from global to global
+                T << cos(psi), -sin(psi), px,
+                     sin(psi), cos(psi), py,
+                     0,0,1;
+
+                P << ptsx[i], ptsy[i], 1;
+                // Transform matrix from vehicle to global
+                Eigen::Vector3f trans_p = T.inverse()*P;
+                ptsx[i] = trans_p[0];
+                ptsy[i] = trans_p[1];
+
             }
 
             // Convert to Eigen
