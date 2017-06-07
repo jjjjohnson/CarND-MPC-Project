@@ -6,8 +6,8 @@
 using CppAD::AD;
 
 // TODO: Set the timestep length and duration
-size_t N = 7;
-double dt = 0.05;
+size_t N = 10;
+double dt = 0.1;
 
 MPC_Weights w;
 // This value assumes the model presented in the classroom is used.
@@ -25,7 +25,7 @@ double ref_cte = 0;
 double ref_epsi = 0;
 // NOTE: feel free to play around with this
 // or do something completely different
-double ref_v = 40;
+double ref_v = 90;
 
 // The solver takes all the state variables and actuator
 // variables in a singular vector. Thus, we should to establish
@@ -47,28 +47,27 @@ class FG_eval {
 
   typedef CPPAD_TESTVECTOR(AD<double>) ADvector;
   void operator()(ADvector& fg, const ADvector& vars) {
-    // TODO: implement MPC
       // The cost is stored is the first element of `fg`.
       // Any additions to the cost should be added to `fg[0]`.
       fg[0] = 0;
 
       // Reference State Cost
-      // TODO: Define the cost related the reference state and
+      // Define the cost related the reference state and
       // any anything you think may be beneficial.
       for (int t=0; t < N; t++) {
-          fg[0] += w.w_cte*pow(vars[t + cte_start] - ref_cte, 2);
-          fg[0] += w.w_epsi*pow(vars[t + epsi_start] - ref_epsi, 2);
-          fg[0] += w.w_v*pow(vars[t + v_start] - ref_v, 2); // (Assuming 35 mph is the speed limit)
+          fg[0] += w.w_cte*CppAD::pow(vars[t + cte_start] - ref_cte, 2);
+          fg[0] += w.w_epsi*CppAD::pow(vars[t + epsi_start] - ref_epsi, 2);
+          fg[0] += w.w_v*CppAD::pow(vars[t + v_start] - ref_v, 2); // (Assuming 35 mph is the speed limit)
       }
 
       for (int t=0; t < N - 1; t++){
-          fg[0] += w.w_angle*pow(vars[t + delta_start], 2);
-          fg[0] += w.w_accel*pow(vars[a_start + t], 2);
+          fg[0] += w.w_angle*CppAD::pow(vars[t + delta_start], 2);
+          fg[0] += w.w_accel*CppAD::pow(vars[a_start + t], 2);
       }
 
       for (int t = 0; t < N - 2; t++) {
-          fg[0] += w.w_angle_jerk*pow(vars[t+1+delta_start] - vars[t+delta_start], 2);
-          fg[0] += w.w_accel_jerk*pow(vars[t+1+a_start] - vars[t+a_start], 2);
+          fg[0] += w.w_angle_jerk*CppAD::pow(vars[t+1+delta_start] - vars[t+delta_start], 2);
+          fg[0] += w.w_accel_jerk*CppAD::pow(vars[t+1+a_start] - vars[t+a_start], 2);
       }
       // Normalize weight for readability
       fg[0] *= w.w_norm;
@@ -102,9 +101,8 @@ class FG_eval {
           AD<double> a = vars[a_start + i];
 
           AD<double> f0 = coeffs[0] + coeffs[1] * x0 + coeffs[2]*pow(x0, 2) + coeffs[3]*pow(x0, 3);
-          AD<double> slop = coeffs[1] + 2*coeffs[2]*x0 + 3*coeffs[3]*pow(x0, 2);
-          AD<double> psides0 = CppAD::atan(slop);
-          // TODO: Setup the rest of the model constraints
+          AD<double> psides0 = CppAD::atan(coeffs[1] + 2*coeffs[2]*x0 + 3*coeffs[3]*x0*x0);
+
           fg[2 + x_start + i] = x1 - (x0 + v0 * CppAD::cos(psi0) * dt);
           fg[2 + y_start + i] = y1 - (y0 + v0 * CppAD::sin(psi0) * dt);
           fg[2 + psi_start + i] = psi1 - (psi0 + v0/Lf * delta * dt);
@@ -128,14 +126,10 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   size_t i;
   typedef CPPAD_TESTVECTOR(double) Dvector;
 
-  // TODO: Set the number of model variables (includes both states and inputs).
-  // For example: If the state is a 4 element vector, the actuators is a 2
-  // element vector and there are 10 timesteps. The number of variables is:
-  //
-  // 4 * 10 + 2 * 9
+  // Set the number of model variables (includes both states and inputs).
   size_t n_vars = N * 6 + (N - 1) * 2;
-  // TODO: Set the number of constraints
-  size_t n_constraints = N*6;
+  // Set the number of constraints
+  size_t n_constraints = N * 6;
 
   // Initial value of the independent variables.
   // SHOULD BE 0 besides initial state.
@@ -159,7 +153,7 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
     vars[epsi_start] = epsi;
     Dvector vars_lowerbound(n_vars);
     Dvector vars_upperbound(n_vars);
-  // TODO: Set lower and upper limits for variables.
+  // Set lower and upper limits for variables.
     for (int i = 0; i < delta_start; i++) {
         vars_lowerbound[i] = -1.0e19;
         vars_upperbound[i] = 1.0e19;
@@ -240,10 +234,13 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   auto cost = solution.obj_value;
   std::cout << "Cost " << cost << std::endl;
 
-  // TODO: Return the first actuator values. The variables can be accessed with
-  // `solution.x[i]`.
-  //
-  // {...} is shorthand for creating a vector, so auto x1 = {1.0,2.0}
-  // creates a 2 element double vector.
-  return {solution.x[delta_start], solution.x[a_start]};
+    vector<double> results;
+    results.push_back(solution.x[delta_start]);
+    results.push_back(solution.x[a_start]);
+
+    for (int i = 0; i < N; i++){
+        results.push_back(solution.x[x_start + i]); // skip the initial value
+        results.push_back(solution.x[y_start + i]);
+    }
+  return results;
 }
