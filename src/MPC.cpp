@@ -6,7 +6,7 @@
 using CppAD::AD;
 
 // TODO: Set the timestep length and duration
-size_t N = 10;
+size_t N = 15;
 double dt = 0.1;
 
 MPC_Weights w;
@@ -25,7 +25,7 @@ double ref_cte = 0;
 double ref_epsi = 0;
 // NOTE: feel free to play around with this
 // or do something completely different
-double ref_v = 90;
+double ref_v = 50;
 
 // The solver takes all the state variables and actuator
 // variables in a singular vector. Thus, we should to establish
@@ -57,7 +57,7 @@ class FG_eval {
       for (int t=0; t < N; t++) {
           fg[0] += w.w_cte*CppAD::pow(vars[t + cte_start] - ref_cte, 2);
           fg[0] += w.w_epsi*CppAD::pow(vars[t + epsi_start] - ref_epsi, 2);
-          fg[0] += w.w_v*CppAD::pow(vars[t + v_start] - ref_v, 2); // (Assuming 35 mph is the speed limit)
+          fg[0] += w.w_v*CppAD::pow(vars[t + v_start] - ref_v, 2); // (Assuming 50 mph is the speed limit)
       }
 
       for (int t=0; t < N - 1; t++){
@@ -207,7 +207,7 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   // options for IPOPT solver
   std::string options;
   // Uncomment this if you'd like more print information
-  options += "Integer print_level  0\n";
+//  options += "Integer print_level  0\n";
   // NOTE: Setting sparse to true allows the solver to take advantage
   // of sparse routines, this makes the computation MUCH FASTER. If you
   // can uncomment 1 of these and see if it makes a difference or not but

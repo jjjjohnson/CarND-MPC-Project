@@ -17,6 +17,24 @@ using json = nlohmann::json;
 constexpr double pi() { return M_PI; }
 double deg2rad(double x) { return x * pi() / 180; }
 double rad2deg(double x) { return x * 180 / pi(); }
+void convert_to_vehicle_coordinate(double px, double py, double psi, vector<double>& ptsx, vector<double>& ptsy){
+  Eigen::Matrix3f T;
+  Eigen::Vector3f P;
+  for (int i = 0; i < ptsx.size(); i++ )
+  {
+    // Transform matrix from global to vehicle
+    T << cos(psi), -sin(psi), px,
+            sin(psi), cos(psi), py,
+            0,0,1;
+
+    P << ptsx[i], ptsy[i], 1;
+    // Transform matrix from vehicle to global x position in global map.
+    Eigen::Vector3f trans_p = T.inverse()*P;
+    ptsx[i] = trans_p[0];
+    ptsy[i] = trans_p[1];
+
+  }
+}
 
 double Lf = 2.67;
 // Checks if the SocketIO event has JSON data.
@@ -93,26 +111,11 @@ int main() {
           double py = j[1]["y"];
           double psi = j[1]["psi"];
           double v = j[1]["speed"];
-            double delta = j[1]["steering_angle"];
-            double acceleration = j[1]["throttle"];
+          double delta = j[1]["steering_angle"];
+          double acceleration = j[1]["throttle"];
+          v = v * 0.6214;// convert from mph to km/h
 
-
-            Eigen::Matrix3f T;
-            Eigen::Vector3f P;
-            for (int i = 0; i < ptsx.size(); i++ )
-            {
-                // Transform matrix from global to global
-                T << cos(psi), -sin(psi), px,
-                     sin(psi), cos(psi), py,
-                     0,0,1;
-
-                P << ptsx[i], ptsy[i], 1;
-                // Transform matrix from vehicle to global
-                Eigen::Vector3f trans_p = T.inverse()*P;
-                ptsx[i] = trans_p[0];
-                ptsy[i] = trans_p[1];
-
-            }
+          convert_to_vehicle_coordinate(px, py, psi, ptsx, ptsy);
 
             // Convert to Eigen
             Eigen::Map<Eigen::VectorXd> ptsx_vector(ptsx.data(), ptsx.size());
